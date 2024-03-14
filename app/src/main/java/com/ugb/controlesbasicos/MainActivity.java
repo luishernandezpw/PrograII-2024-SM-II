@@ -61,6 +61,35 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         });
+        mostrarDatosAmigos();
+    }
+    private void mostrarDatosAmigos(){
+        try{
+            Bundle parametros = getIntent().getExtras();
+            accion = parametros.getString("accion");
+
+            if(accion.equals("modificar")){
+                String[] amigos = parametros.getStringArray("amigos");
+                id = amigos[0];
+
+                tempVal = findViewById(R.id.txtnombre);
+                tempVal.setText(amigos[1]);
+
+                tempVal = findViewById(R.id.txtdireccion);
+                tempVal.setText(amigos[2]);
+
+                tempVal = findViewById(R.id.txtTelefono);
+                tempVal.setText(amigos[3]);
+
+                tempVal = findViewById(R.id.txtEmail);
+                tempVal.setText(amigos[4]);
+
+                tempVal = findViewById(R.id.txtDui);
+                tempVal.setText(amigos[5]);
+            }
+        }catch (Exception e){
+            mostrarMsg("Error al mostrar los datos amigos");
+        }
     }
     private void mostrarMsg(String msg){
         Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_LONG).show();
