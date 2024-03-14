@@ -1,8 +1,10 @@
 package com.ugb.controlesbasicos;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.database.Cursor;
 import android.os.Bundle;
@@ -77,11 +79,42 @@ public class lista_amigos extends AppCompatActivity {
                     parametros.putStringArray("amigos", amigos);
                     abrirActividad(parametros);
                     break;
+                case R.id.mnxEliminar:
+                    eliminarAmigos();
+                    break;
             }
             return true;
         }catch (Exception e){
             mostrarMsg("Error al seleccionar una opcion del mennu: "+ e.getMessage());
             return super.onContextItemSelected(item);
+        }
+    }
+    private void eliminarAmigos(){
+        try{
+            AlertDialog.Builder confirmar = new AlertDialog.Builder(lista_amigos.this);
+            confirmar.setTitle("Estas seguro de eliminar a: ");
+            confirmar.setMessage(cAmigos.getString(1)); //1 es el nombre
+            confirmar.setPositiveButton("SI", new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialogInterface, int i) {
+                    String respuesta = db.administrar_amigos("eliminar", new String[]{cAmigos.getString(0)});//0 es el idAmigo
+                    if(respuesta.equals("ok")){
+                        mostrarMsg("Amigo eliminado con exito");
+                        obtenerDatosAmigos();
+                    }else{
+                        mostrarMsg("Error al eliminar el amigo: "+ respuesta);
+                    }
+                }
+            });
+            confirmar.setNegativeButton("NO", new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialogInterface, int i) {
+                    dialogInterface.dismiss();
+                }
+            });
+            confirmar.create().show();
+        }catch (Exception e){
+            mostrarMsg("Error al eliminar amigo: "+ e.getMessage());
         }
     }
     private void abrirActividad(Bundle parametros){
