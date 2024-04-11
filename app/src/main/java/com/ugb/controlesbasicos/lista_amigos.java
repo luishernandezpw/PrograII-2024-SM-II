@@ -39,11 +39,13 @@ public class lista_amigos extends AppCompatActivity {
     JSONObject jsonObject;
     obtenerDatosServidor datosServidor;
     detectarInternet di;
+    int posicion=0;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.lista_amigos);
 
+        db = new DB(lista_amigos.this, "", null, 1);
         btnAgregarAmigos = findViewById(R.id.fabAgregarAmigos);
         btnAgregarAmigos.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -115,9 +117,13 @@ public class lista_amigos extends AppCompatActivity {
         MenuInflater inflater = getMenuInflater();
         inflater.inflate(R.menu.mimenu, menu);
 
-        AdapterView.AdapterContextMenuInfo info = (AdapterView.AdapterContextMenuInfo) menuInfo;
-        cAmigos.moveToPosition(info.position);
-        menu.setHeaderTitle(cAmigos.getString(1)); //1 es el nombre
+        try {
+            AdapterView.AdapterContextMenuInfo info = (AdapterView.AdapterContextMenuInfo) menuInfo;
+            posicion = info.position;
+            menu.setHeaderTitle(datosJSON.getJSONObject(posicion).getJSONObject("value").getString("nombre"));
+        }catch (Exception e){
+            mostrarMsg("Error al mostrar el menu: "+ e.getMessage());
+        }
     }
     @Override
     public boolean onContextItemSelected(@NonNull MenuItem item) {
@@ -128,17 +134,8 @@ public class lista_amigos extends AppCompatActivity {
                     abrirActividad(parametros);
                     break;
                 case R.id.mnxModificar:
-                    String[] amigos = {
-                            cAmigos.getString(0), //idAmigo
-                            cAmigos.getString(1), //nombre
-                            cAmigos.getString(2), //direccion
-                            cAmigos.getString(3), //tel
-                            cAmigos.getString(4), //email
-                            cAmigos.getString(5), //dui
-                            cAmigos.getString(6), //foto
-                    };
                     parametros.putString("accion", "modificar");
-                    parametros.putStringArray("amigos", amigos);
+                    parametros.putString("amigos", datosJSON.getJSONObject(posicion).toString());
                     abrirActividad(parametros);
                     break;
                 case R.id.mnxEliminar:
@@ -155,16 +152,21 @@ public class lista_amigos extends AppCompatActivity {
         try{
             AlertDialog.Builder confirmar = new AlertDialog.Builder(lista_amigos.this);
             confirmar.setTitle("Estas seguro de eliminar a: ");
-            confirmar.setMessage(cAmigos.getString(1)); //1 es el nombre
+            confirmar.setMessage(datosJSON.getJSONObject(posicion).getJSONObject("value").getString("nombre")); //1 es el nombre
             confirmar.setPositiveButton("SI", new DialogInterface.OnClickListener() {
                 @Override
                 public void onClick(DialogInterface dialogInterface, int i) {
-                    String respuesta = db.administrar_amigos("eliminar", new String[]{cAmigos.getString(0)});//0 es el idAmigo
-                    if(respuesta.equals("ok")){
-                        mostrarMsg("Amigo eliminado con exito");
-                        obtenerDatosAmigos();
-                    }else{
-                        mostrarMsg("Error al eliminar el amigo: "+ respuesta);
+                    try {
+                        String respuesta = db.administrar_amigos("eliminar",
+                                new String[]{"", "", datosJSON.getJSONObject(posicion).getJSONObject("value").getString("idAmigo")});
+                        if (respuesta.equals("ok")) {
+                            mostrarMsg("Amigo eliminado con exito");
+                            obtenerDatosAmigos();
+                        } else {
+                            mostrarMsg("Error al eliminar el amigo: " + respuesta);
+                        }
+                    }catch (Exception e){
+                        mostrarMsg("Error al intentar elimianr: "+ e.getMessage());
                     }
                 }
             });
@@ -184,9 +186,8 @@ public class lista_amigos extends AppCompatActivity {
         abrirActividad.putExtras(parametros);
         startActivity(abrirActividad);
     }
-    private void obtenerDatosAmigos(){
+    private void obtenerDatosAmigos(){//offline
         try {
-            db = new DB(lista_amigos.this, "", null, 1);
             cAmigos = db.consultar_amigos();
 
             if( cAmigos.moveToFirst() ){
@@ -203,9 +204,12 @@ public class lista_amigos extends AppCompatActivity {
                     jsonObject.put("email", cAmigos.getString(6));
                     jsonObject.put("dui", cAmigos.getString(7));
                     jsonObject.put("urlCompletaFoto", cAmigos.getString(8));
+
                     jsonObjectValue.put("value", jsonObject);
                     datosJSON.put(jsonObjectValue);
+
                 }while(cAmigos.moveToNext());
+                mostrarDatosAmigos();
             }else{
                 mostrarMsg("No hay Datos de amigos que mostrar.");
             }
