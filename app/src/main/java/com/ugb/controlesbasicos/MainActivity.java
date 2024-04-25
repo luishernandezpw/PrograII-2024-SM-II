@@ -75,7 +75,7 @@ public class MainActivity extends AppCompatActivity {
                     tempVal = findViewById(R.id.txtDui);
                     String dui = tempVal.getText().toString();
 
-                    String respuesta = "";
+                    String respuesta = "", actualizado="no";
                     if( di.hayConexionInternet() ) {
                         //obtener datos a enviar al servidor
                         JSONObject datosAmigos = new JSONObject();
@@ -98,11 +98,12 @@ public class MainActivity extends AppCompatActivity {
                         if (respuestaJSONObject.getBoolean("ok")) {
                             id = respuestaJSONObject.getString("id");
                             rev = respuestaJSONObject.getString("rev");
+                            actualizado="si";
                         } else {
                             respuesta = "Error al guardar en servidor: " + respuesta;
                         }
                     }
-                    String[] datos = new String[]{id, rev, idAmigo, nombre, direccion, tel, email, dui, urlCompletaFoto};
+                    String[] datos = new String[]{id, rev, idAmigo, nombre, direccion, tel, email, dui, urlCompletaFoto,actualizado};
                     respuesta = db.administrar_amigos(accion, datos);
                     if (respuesta.equals("ok")) {
                         mostrarMsg("Amigos registrado con exito.");

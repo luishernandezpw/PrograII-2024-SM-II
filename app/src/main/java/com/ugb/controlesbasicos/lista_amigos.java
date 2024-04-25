@@ -28,7 +28,7 @@ import java.util.ArrayList;
 
 public class lista_amigos extends AppCompatActivity {
     Bundle parametros = new Bundle();
-    FloatingActionButton btnAgregarAmigos;
+    FloatingActionButton btn;
     ListView lts;
     Cursor cAmigos;
     amigos misAamigos;
@@ -46,25 +46,86 @@ public class lista_amigos extends AppCompatActivity {
         setContentView(R.layout.lista_amigos);
 
         db = new DB(lista_amigos.this, "", null, 1);
-        btnAgregarAmigos = findViewById(R.id.fabAgregarAmigos);
-        btnAgregarAmigos.setOnClickListener(new View.OnClickListener() {
+        btn = findViewById(R.id.fabAgregarAmigos);
+        btn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 parametros.putString("accion","nuevo");
                 abrirActividad(parametros);
             }
         });
+        btn = findViewById(R.id.fabSincronizarAmigos);
+        btn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                listarDatos();
+            }
+        });
+        listarDatos();
+        buscarAmigos();
+    }
+    private void listarDatos(){
         try{
             di = new detectarInternet(getApplicationContext());
-            if( di.hayConexionInternet() ){
-                obtenerDatosAmigosServidor();
+            if( di.hayConexionInternet() ){//online
+                sincronizar();
             }else{//offline
                 obtenerDatosAmigos();
             }
         }catch (Exception e){
             mostrarMsg("Error al cargar lista amigo: "+ e.getMessage());
         }
-        buscarAmigos();
+    }
+    private void sincronizar(){
+        try{
+            cAmigos = db.pendienteSincronizar();
+            if( cAmigos.moveToFirst() ){//Hay datos pendientes de sincronizar
+                mostrarMsg("Sincronizado...");
+                jsonObject = new JSONObject();
+                do{
+                    if( cAmigos.getString(0).length()>0 && cAmigos.getString(1).length()>0 ){
+                        jsonObject.put("_id", cAmigos.getString(0));
+                        jsonObject.put("_rev", cAmigos.getString(1));
+                    }
+                    jsonObject.put("idAmigo", cAmigos.getString(2));
+                    jsonObject.put("nombre", cAmigos.getString(3));
+                    jsonObject.put("direccion", cAmigos.getString(4));
+                    jsonObject.put("telefono", cAmigos.getString(5));
+                    jsonObject.put("email", cAmigos.getString(6));
+                    jsonObject.put("dui", cAmigos.getString(7));
+                    jsonObject.put("urlCompletaFoto", cAmigos.getString(8));
+                    jsonObject.put("actualizado", "si");
+
+                    enviarDatosServidor objGuardarDatosServidor = new enviarDatosServidor(getApplicationContext());
+                    String respuesta = objGuardarDatosServidor.execute(jsonObject.toString()).get();
+                    JSONObject respuestaJSONObject = new JSONObject(respuesta);
+                    if (respuestaJSONObject.getBoolean("ok")) {
+                        String[] datos = new String[]{
+                            respuestaJSONObject.getString("id"),
+                            respuestaJSONObject.getString("rev"),
+                                jsonObject.getString("idAmigo"),
+                                jsonObject.getString("nombre"),
+                                jsonObject.getString("direccion"),
+                                jsonObject.getString("telefono"),
+                                jsonObject.getString("email"),
+                                jsonObject.getString("dui"),
+                                jsonObject.getString("urlCompletaFoto"),
+                                jsonObject.getString("actualizado")
+                        };
+                        respuesta = db.administrar_amigos("modificar", datos);
+                        if( !respuesta.equals("ok") ){
+                            mostrarMsg("Error al guardar en local los datos sincronizados");
+                        }
+                    } else {
+                        mostrarMsg("Error al enviar los datos para sincronizar: "+ respuesta);
+                    }
+                }while (cAmigos.moveToNext());
+                mostrarMsg("Sincronizacion completa");
+            }
+            obtenerDatosAmigosServidor();
+        }catch (Exception e){
+            mostrarMsg("Error al sincronizar: "+ e.getMessage());
+        }
     }
     private void obtenerDatosAmigosServidor(){
         try {

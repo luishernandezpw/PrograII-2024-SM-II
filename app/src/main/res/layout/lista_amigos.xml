@@ -18,6 +18,15 @@
         android:layout_marginTop="40dp" />
 
     <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fabSincronizarAmigos"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentRight="true"
+        android:layout_alignParentBottom="true"
+        android:layout_marginEnd="20dp"
+        android:layout_marginBottom="80dp"
+        android:src="@android:drawable/stat_notify_sync" />
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fabAgregarAmigos"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
