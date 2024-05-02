@@ -7,7 +7,7 @@ Códigos de la Clase de Programación II - 2024 - Ciclo I - SM
 * Base de Datos (Sqlite -> Local, CouchDB, Firebase, Mongo -> Nube)
 * WebServices
 * Notificaciones PUSH
-* Uso de Sensores (Acelerometro, Giroscopio, Luz, GPS, Proximidad, etc.) 
+* Uso de Sensores (Acelerometro, Giroscopio, Luz, GPS, Proximidad, Camara, etc.) 
 * Multimedia (Audio, Imagenes, Videos, Graficos)
 * Chats de usuarios
 * Menus
