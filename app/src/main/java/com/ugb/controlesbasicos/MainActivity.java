@@ -19,7 +19,14 @@ import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.google.android.gms.tasks.Task;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.messaging.FirebaseMessaging;
+import com.google.firebase.storage.FirebaseStorage;
+import com.google.firebase.storage.StorageReference;
+import com.google.firebase.storage.UploadTask;
 
 import org.json.JSONObject;
 
@@ -34,10 +41,13 @@ public class MainActivity extends AppCompatActivity {
     String id="", rev="", idAmigo="", accion="nuevo";
     ImageView img;
     String urlCompletaFoto;
+    String urlCompletaFotoFirestore;
+    String miToken="";
     Intent tomarFotoIntent;
     utilidades utls;
     DB db;
     detectarInternet di;
+    DatabaseReference databaseReference;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -59,61 +69,7 @@ public class MainActivity extends AppCompatActivity {
         btn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                try {
-                    tempVal = findViewById(R.id.txtnombre);
-                    String nombre = tempVal.getText().toString();
-
-                    tempVal = findViewById(R.id.txtdireccion);
-                    String direccion = tempVal.getText().toString();
-
-                    tempVal = findViewById(R.id.txtTelefono);
-                    String tel = tempVal.getText().toString();
-
-                    tempVal = findViewById(R.id.txtEmail);
-                    String email = tempVal.getText().toString();
-
-                    tempVal = findViewById(R.id.txtDui);
-                    String dui = tempVal.getText().toString();
-
-                    String respuesta = "", actualizado="no";
-                    if( di.hayConexionInternet() ) {
-                        //obtener datos a enviar al servidor
-                        JSONObject datosAmigos = new JSONObject();
-                        if (accion.equals("modificar")) {
-                            datosAmigos.put("_id", id);
-                            datosAmigos.put("_rev", rev);
-                        }
-                        datosAmigos.put("idAmigo", idAmigo);
-                        datosAmigos.put("nombre", nombre);
-                        datosAmigos.put("direccion", direccion);
-                        datosAmigos.put("telefono", tel);
-                        datosAmigos.put("email", email);
-                        datosAmigos.put("dui", dui);
-                        datosAmigos.put("urlCompletaFoto", urlCompletaFoto);
-                        //enviamos los datos
-                        enviarDatosServidor objGuardarDatosServidor = new enviarDatosServidor(getApplicationContext());
-                        respuesta = objGuardarDatosServidor.execute(datosAmigos.toString()).get();
-                        //comprobacion de la respuesta
-                        JSONObject respuestaJSONObject = new JSONObject(respuesta);
-                        if (respuestaJSONObject.getBoolean("ok")) {
-                            id = respuestaJSONObject.getString("id");
-                            rev = respuestaJSONObject.getString("rev");
-                            actualizado="si";
-                        } else {
-                            respuesta = "Error al guardar en servidor: " + respuesta;
-                        }
-                    }
-                    String[] datos = new String[]{id, rev, idAmigo, nombre, direccion, tel, email, dui, urlCompletaFoto,actualizado};
-                    respuesta = db.administrar_amigos(accion, datos);
-                    if (respuesta.equals("ok")) {
-                        mostrarMsg("Amigos registrado con exito.");
-                        listarAmigos();
-                    } else {
-                        mostrarMsg("Error al intentar registrar el amigo: " + respuesta);
-                    }
-                }catch (Exception e){
-                    mostrarMsg("Error al guadar datos en el servidor o en SQLite: "+ e.getMessage());
-                }
+                subirFotoFirestore();
             }
         });
         img = findViewById(R.id.btnImgAmigo);
@@ -123,7 +79,75 @@ public class MainActivity extends AppCompatActivity {
                 tomarFotoAmigo();
             }
         });
+        obtenerToken();
         mostrarDatosAmigos();
+    }
+    private void obtenerToken(){
+        FirebaseMessaging.getInstance().getToken().addOnCompleteListener(tarea->{
+            if( !tarea.isSuccessful() ) return;
+            miToken = tarea.getResult();
+        });
+    }
+    private void subirFotoFirestore(){
+        mostrarMsg("Subiendo foto...");
+        StorageReference storageReference = FirebaseStorage.getInstance().getReference();
+        Uri file = Uri.fromFile(new File(urlCompletaFoto));
+        final StorageReference reference = storageReference.child("foto/"+file.getLastPathSegment());
+
+        final UploadTask tareaSubir = reference.putFile(file);
+        tareaSubir.addOnFailureListener(e->{
+            mostrarMsg("Error al subir la foto a firestore: "+ e.getMessage());
+        });
+        tareaSubir.addOnSuccessListener(instantanea->{
+            mostrarMsg("Foto subida con exito.");
+            Task<Uri> descargarUri = tareaSubir.continueWithTask(tarea->reference.getDownloadUrl()).addOnCompleteListener(tarea->{
+                if( tarea.isSuccessful() ){
+                    urlCompletaFotoFirestore = tarea.getResult().toString();
+                    guardarAmigo();
+                }else{
+                    mostrarMsg("Error al obtener la ruta de la foto. ");
+                }
+            });
+        });
+    }
+    private void guardarAmigo(){
+        try {
+            tempVal = findViewById(R.id.txtnombre);
+            String nombre = tempVal.getText().toString();
+
+            tempVal = findViewById(R.id.txtdireccion);
+            String direccion = tempVal.getText().toString();
+
+            tempVal = findViewById(R.id.txtTelefono);
+            String tel = tempVal.getText().toString();
+
+            tempVal = findViewById(R.id.txtEmail);
+            String email = tempVal.getText().toString();
+
+            tempVal = findViewById(R.id.txtDui);
+            String dui = tempVal.getText().toString();
+
+            databaseReference = FirebaseDatabase.getInstance().getReference("amigos");
+            String key = databaseReference.push().getKey();
+
+            if( miToken.equals("") || miToken==null ){
+                obtenerToken();
+            }
+            if( miToken!="" && miToken!=null ){
+                amigos amigo = new amigos(idAmigo,nombre,direccion,tel,email,dui,urlCompletaFoto,urlCompletaFotoFirestore,miToken);
+                if(key!=null){
+                    databaseReference.child(key).setValue(amigo).addOnSuccessListener(aVoid->{
+                        mostrarMsg("Amigo registrado con exito.");
+                    });
+                }else{
+                    mostrarMsg("Error al intentar guardar el amigo.");
+                }
+            }else{
+                mostrarMsg("Error el telefono no es compatible con las notificaciones");
+            }
+        }catch (Exception e){
+            mostrarMsg("Error al guadar datos en el servidor o en SQLite: "+ e.getMessage());
+        }
     }
     private void tomarFotoAmigo(){
         tomarFotoIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
