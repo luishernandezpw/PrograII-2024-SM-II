@@ -20,6 +20,12 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
+import com.google.firebase.messaging.FirebaseMessaging;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -40,6 +46,8 @@ public class lista_amigos extends AppCompatActivity {
     obtenerDatosServidor datosServidor;
     detectarInternet di;
     int posicion=0;
+    DatabaseReference databaseReference;
+    String miToken="";
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -68,7 +76,8 @@ public class lista_amigos extends AppCompatActivity {
         try{
             di = new detectarInternet(getApplicationContext());
             if( di.hayConexionInternet() ){//online
-                sincronizar();
+                obtenerDatosAmigosServidor();
+                //sincronizar();
             }else{//offline
                 obtenerDatosAmigos();
             }
@@ -129,11 +138,59 @@ public class lista_amigos extends AppCompatActivity {
     }
     private void obtenerDatosAmigosServidor(){
         try {
-            datosServidor = new obtenerDatosServidor();
-            String data = datosServidor.execute().get();
-            jsonObject = new JSONObject(data);
-            datosJSON = jsonObject.getJSONArray("rows");
-            mostrarDatosAmigos();
+            databaseReference = FirebaseDatabase.getInstance().getReference("amigos");
+            FirebaseMessaging.getInstance().getToken().addOnCompleteListener(tarea->{
+                if(!tarea.isSuccessful()) return;
+                miToken = tarea.getResult();
+                if(miToken!="" && miToken!=null){
+                    databaseReference.orderByChild("token").equalTo(miToken).addListenerForSingleValueEvent(new ValueEventListener() {
+                        @Override
+                        public void onDataChange(@NonNull DataSnapshot snapshot) {
+                            if( snapshot.getChildrenCount()<=0 ){
+                                mostrarMsg("NO estas registrado, por favor registrese.");
+                                parametros.putString("accion", "nuevo");
+                                abrirActividad(parametros);
+                            }
+                        }
+                        @Override
+                        public void onCancelled(@NonNull DatabaseError error) {
+
+                        }
+                    });
+                    databaseReference.addValueEventListener(new ValueEventListener() {
+                        @Override
+                        public void onDataChange(@NonNull DataSnapshot snapshot) {
+                            try{
+                                datosJSON = new JSONArray();
+                                for (DataSnapshot dataSnapshot : snapshot.getChildren()){
+                                    amigos amigo = dataSnapshot.getValue(amigos.class);
+                                    jsonObject = new JSONObject();
+                                    jsonObject.put("idAmigo", amigo.getIdAmigo());
+                                    jsonObject.put("nombre", amigo.getNombre());
+                                    jsonObject.put("direccion", amigo.getDireccion());
+                                    jsonObject.put("telefono", amigo.getTelefono());
+                                    jsonObject.put("email", amigo.getEmail());
+                                    jsonObject.put("dui", amigo.getDui());
+                                    jsonObject.put("urlCompletaFoto", amigo.getFoto());
+                                    jsonObject.put("urlCompletaFotoFirestore", amigo.getUrlCompletaFotoFirestore());
+                                    jsonObject.put("to", amigo.getToken());
+                                    jsonObject.put("from", miToken);
+                                    datosJSON.put(jsonObject);
+                                }
+                                mostrarDatosAmigos();
+                            }catch (Exception ex){
+                                mostrarMsg("Error al obtener los datos: "+ ex.getMessage());
+                            }
+                        }
+                        @Override
+                        public void onCancelled(@NonNull DatabaseError error) {
+
+                        }
+                    });
+                }else{
+                    mostrarMsg("Error tu dispositivo NO es compatible.");
+                }
+            });
         }catch (Exception e){
             mostrarMsg("Error al obtener datos del server: "+e.getMessage());
         }
@@ -147,17 +204,17 @@ public class lista_amigos extends AppCompatActivity {
 
                 JSONObject misDatosJSONObject;
                 for (int i=0; i<datosJSON.length();i++){
-                    misDatosJSONObject = datosJSON.getJSONObject(i).getJSONObject("value");
+                    misDatosJSONObject = datosJSON.getJSONObject(i);
                     misAamigos = new amigos(
-                            misDatosJSONObject.getString("_id"),
-                            misDatosJSONObject.getString("_rev"),
                             misDatosJSONObject.getString("idAmigo"),
                             misDatosJSONObject.getString("nombre"),
                             misDatosJSONObject.getString("direccion"),
                             misDatosJSONObject.getString("telefono"),
                             misDatosJSONObject.getString("email"),
                             misDatosJSONObject.getString("dui"),
-                            misDatosJSONObject.getString("urlCompletaFoto")
+                            misDatosJSONObject.getString("urlCompletaFoto"),
+                            misDatosJSONObject.getString("urlCompletaFotoFirestore"),
+                            misDatosJSONObject.getString("to")
                     );
                     alAmigos.add(misAamigos);
                 }
