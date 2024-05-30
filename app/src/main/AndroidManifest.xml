@@ -37,12 +37,6 @@
             android:name=".chats"
             android:exported="false" />
         <activity
-            android:name=".lista_usuarios"
-            android:exported="false" />
-        <activity
-            android:name=".usuarios"
-            android:exported="false" />
-        <activity
             android:name=".MainActivity"
             android:exported="false" />
         <activity
